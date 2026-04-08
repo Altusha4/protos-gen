@@ -1,0 +1,58 @@
+name: Generate Go Protobuf Files
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Install protoc-gen-go
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: Clone Proto Files Repository
+        run: |
+          git clone https://github.com/Altusha4/protos.git
+
+      - name: Generate Go Code from Proto Files
+        run: |
+          cd protos
+          find . -name "*.proto" | xargs -I{} protoc \
+            --go_out=../ \
+            --go_opt=paths=source_relative \
+            --go-grpc_out=../ \
+            --go-grpc_opt=paths=source_relative \
+            {}
+
+      - name: Clone Generator Repository
+        run: |
+          git clone https://Altusha4:${{ secrets.PAT_TOKEN }}@github.com/Altusha4/protos-gen.git
+
+      - name: Copy Generated Files
+        run: |
+          cp -r user/ protos-gen/
+
+      - name: Push Generated Files
+        run: |
+          cd protos-gen
+          git config user.email "240782@astanait.edu.kz"
+          git config user.name "Altusha4"
+          git add .
+          git commit -m "Auto-generated protobuf files" || echo "No changes"
+          git push origin main
